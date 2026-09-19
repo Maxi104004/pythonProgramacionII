@@ -4,13 +4,14 @@ from tkinter import filedialog
 from tkinter import messagebox
 
 from lectores.lector_evtx import leer_evtx
+from filtros import filtrar_eventos
 
 
 def seleccionar_archivo():
     """
     Permite seleccionar un archivo EVTX desde una ventana.
     """
-
+    global eventos_cargados
     ruta_archivo = filedialog.askopenfilename(
         title="Seleccionar archivo EVTX",
         filetypes=[
@@ -25,17 +26,21 @@ def seleccionar_archivo():
     try:
         # Por ahora leeremos solamente 100 eventos
         # para comprobar que todo funcione correctamente.
-        eventos = leer_evtx(ruta_archivo, limite=100)
+        
+        eventos_cargados = leer_evtx(
+        ruta_archivo,
+        limite=100
+       )
 
         etiqueta_archivo.config(
             text=f"Archivo: {ruta_archivo}"
         )
 
         etiqueta_cantidad.config(
-            text=f"Eventos cargados: {len(eventos)}"
+            text=f"Eventos cargados: {len(eventos_cargados)}"
         )
 
-        cargar_tabla(eventos)
+        cargar_tabla(eventos_cargados)
 
     except Exception as error:
         messagebox.showerror(
@@ -69,6 +74,89 @@ def cargar_tabla(eventos):
             )
         )
 
+def aplicar_filtros():
+    """
+    Obtiene los criterios ingresados en la interfaz
+    y utiliza la función filtrar_eventos().
+    """
+
+    # Verificamos que exista un archivo cargado.
+    if not eventos_cargados:
+        messagebox.showwarning(
+            "Sin archivo",
+            "Primero debe cargar un archivo EVTX."
+        )
+        return
+
+    # Obtenemos los valores ingresados por el usuario.
+    texto_event_id = entrada_event_id.get().strip()
+    usuario = entrada_usuario.get().strip()
+    ip = entrada_ip.get().strip()
+    categoria = combo_categoria.get().strip()
+    texto = entrada_texto.get().strip()
+
+    # ---------------------------------------------
+    # VALIDACIÓN DEL EVENT ID
+    # ---------------------------------------------
+
+    event_id = None
+
+    if texto_event_id:
+
+        if not texto_event_id.isdigit():
+            messagebox.showerror(
+                "Event ID inválido",
+                "El Event ID debe contener solamente números."
+            )
+            return
+
+        event_id = int(texto_event_id)
+
+    # Si el usuario selecciona "Todos",
+    # no aplicamos filtro de categoría.
+    if categoria == "Todos":
+        categoria = None
+
+    # ---------------------------------------------
+    # APLICAR FILTROS
+    # ---------------------------------------------
+
+    resultados = filtrar_eventos(
+        eventos_cargados,
+        event_id=event_id,
+        usuario=usuario,
+        ip=ip,
+        categoria=categoria,
+        texto=texto
+    )
+
+    # Mostramos únicamente los eventos encontrados.
+    cargar_tabla(resultados)
+
+    etiqueta_cantidad.config(
+        text=f"Eventos encontrados: {len(resultados)}"
+    )
+def limpiar_filtros():
+    """
+    Limpia todos los campos de búsqueda y vuelve
+    a mostrar la lista completa de eventos.
+    """
+
+    entrada_event_id.delete(0, tk.END)
+    entrada_usuario.delete(0, tk.END)
+    entrada_ip.delete(0, tk.END)
+    entrada_texto.delete(0, tk.END)
+
+    combo_categoria.set("Todos")
+
+    cargar_tabla(eventos_cargados)
+
+    etiqueta_cantidad.config(
+        text=f"Eventos cargados: {len(eventos_cargados)}"
+    )
+
+
+
 
 def iniciar_interfaz():
     """
@@ -78,6 +166,11 @@ def iniciar_interfaz():
     global etiqueta_archivo
     global etiqueta_cantidad
     global tabla
+    global entrada_event_id
+    global entrada_usuario
+    global entrada_ip
+    global entrada_texto
+    global combo_categoria
 
     ventana = tk.Tk()
 
@@ -128,6 +221,151 @@ def iniciar_interfaz():
     )
 
     etiqueta_cantidad.pack(pady=5)
+    # --------------------------------------------------
+    # PANEL DE FILTROS
+    # --------------------------------------------------
+
+    marco_filtros = ttk.LabelFrame(
+        ventana,
+        text="Filtros de búsqueda"
+    )
+
+    marco_filtros.pack(
+        fill=tk.X,
+        padx=20,
+        pady=10
+    )
+    ttk.Label(
+        marco_filtros,
+        text="Event ID:"
+    ).grid(
+        row=0,
+        column=0,
+        padx=5,
+        pady=5
+    )
+
+    entrada_event_id = ttk.Entry(
+        marco_filtros,
+        width=15
+    )
+
+    entrada_event_id.grid(
+        row=0,
+        column=1,
+        padx=5,
+        pady=5
+    )
+
+    ttk.Label(
+        marco_filtros,
+        text="Usuario:"
+    ).grid(
+        row=0,
+        column=2,
+        padx=5,
+        pady=5
+    )
+
+    entrada_usuario = ttk.Entry(
+        marco_filtros,
+        width=20
+    )
+
+    entrada_usuario.grid(
+        row=0,
+        column=3,
+        padx=5,
+        pady=5
+    )
+
+    ttk.Label(
+        marco_filtros,
+        text="IP:"
+    ).grid(
+        row=0,
+        column=4,
+        padx=5,
+        pady=5
+    )
+
+    entrada_ip = ttk.Entry(
+        marco_filtros,
+        width=20
+    )
+
+    entrada_ip.grid(
+        row=0,
+        column=5,
+        padx=5,
+        pady=5
+    )
+    
+    ttk.Label(
+    marco_filtros,
+    text="Categoría:"
+    ).grid(
+        row=1,
+        column=0,
+        padx=5,
+        pady=5
+    )
+
+    combo_categoria = ttk.Combobox(
+    marco_filtros,
+        values=(
+         "Todos",
+         "Autenticación",
+         "Cuentas",
+         "Procesos",
+         "Dispositivos",
+         "Sistema",
+         "Auditoría",
+         "Otros"
+    ),
+    state="readonly",
+        width=18
+    )
+
+    combo_categoria.grid(
+    row=1,
+        column=1,
+        padx=5,
+        pady=5
+    )
+
+    combo_categoria.set("Todos")
+
+
+    # -----------------------------
+    # BOTONES
+    # -----------------------------
+
+    boton_filtrar = ttk.Button(
+        marco_filtros,
+        text="Aplicar filtros",
+        command=aplicar_filtros
+    )
+
+    boton_filtrar.grid(
+        row=2,
+        column=2,
+        padx=5,
+        pady=10
+    )
+
+    boton_limpiar = ttk.Button(
+        marco_filtros,
+        text="Limpiar filtros",
+        command=limpiar_filtros
+    )
+
+    boton_limpiar.grid(
+        row=2,
+        column=3,
+        padx=5,
+        pady=10
+    )
 
     # --------------------------------------------------
     # TABLA DE EVENTOS
